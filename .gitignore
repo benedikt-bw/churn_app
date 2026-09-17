@@ -219,3 +219,4 @@ __marimo__/
 
 # Ignore Data
 data/*.csv
+data/*.parquet
