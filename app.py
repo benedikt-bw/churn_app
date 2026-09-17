@@ -130,6 +130,7 @@ with col1:
 
     gender_counts = (
         filtered_df["gender"]
+        .map({"F": "Female", "M": "Male"})
         .value_counts()
         .reset_index()
     )
@@ -161,7 +162,63 @@ with col2:
 
 
 
-### Dataset
+# --------------------------------------------------
+# Churn Overview
+# --------------------------------------------------
+
+st.divider()
+st.subheader("Churn Overview")
+
+col1, col2 = st.columns(2)
+
+# Churn distribution for selected snapshot
+with col1:
+    st.markdown("#### Churn Distribution")
+
+    churn_counts = (
+        filtered_df["label"]
+        .map({0: "No Churn", 1: "Churn"})
+        .value_counts()
+        .reset_index()
+    )
+
+    churn_counts.columns = ["Status", "Users"]
+
+    st.bar_chart(
+        churn_counts,
+        x="Status",
+        y="Users"
+    )
+
+
+# Churn rate across snapshot days
+with col2:
+    st.markdown("#### Churn Rate Over Time")
+
+    churn_by_day = (
+        df.groupby("snapshot_day")["label"]
+        .mean()
+        .mul(100)
+        .reset_index(name="Churn Rate (%)")
+    )
+
+    st.line_chart(
+        churn_by_day,
+        x="snapshot_day",
+        y="Churn Rate (%)"
+    )
+
+
+
+
+
+
+
+
+
+# --------------------------------------------------
+# Dataset
+# --------------------------------------------------
 
 st.divider()
 
