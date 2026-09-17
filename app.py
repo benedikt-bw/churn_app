@@ -66,7 +66,7 @@ p {
 # Load data
 # --------------------------------------------------
 
-df = pd.read_csv("data/train_sample.csv")
+df = pd.read_parquet("data/03_10_day_window_sliced.parquet")
 
 # --------------------------------------------------
 # Main page
@@ -80,12 +80,100 @@ st.markdown(
 
 st.divider()
 
+# --------------------------------------------------
+# Key metrics
+# --------------------------------------------------
+
+snapshot = st.selectbox(
+    "Select snapshot day",
+    sorted(df["snapshot_day"].unique())
+)
+
+filtered_df = df[df["snapshot_day"] == snapshot]
+
+unique_users = filtered_df["userId"].nunique()
+churn_rate = filtered_df["label"].mean() * 100
+avg_active_days = filtered_df["active_days"].mean()
+
+col1, col2, col3 = st.columns(3)
+
+with col1:
+    st.metric(
+        label="Users",
+        value=f"{unique_users:,}"
+    )
+
+with col2:
+    st.metric(
+        label="Churn Rate",
+        value=f"{churn_rate:.1f}%"
+    )
+
+with col3:
+    st.metric(
+        label="Avg. Active Days",
+        value=f"{avg_active_days:.1f}"
+    )
+
+# --------------------------------------------------
+# User Overview
+# --------------------------------------------------
+
+st.divider()
+st.subheader("User Overview")
+
+col1, col2 = st.columns(2)
+
+# Gender distribution
+with col1:
+    st.markdown("#### Gender Distribution")
+
+    gender_counts = (
+        filtered_df["gender"]
+        .value_counts()
+        .reset_index()
+    )
+    gender_counts.columns = ["Gender", "Users"]
+
+    st.bar_chart(
+        gender_counts,
+        x="Gender",
+        y="Users"
+    )
+
+
+# Operating system distribution
+with col2:
+    st.markdown("#### Operating System")
+
+    os_counts = (
+        filtered_df["operating_system"]
+        .value_counts()
+        .reset_index()
+    )
+    os_counts.columns = ["Operating System", "Users"]
+
+    st.bar_chart(
+        os_counts,
+        x="Operating System",
+        y="Users"
+    )
+
+
+
+### Dataset
+
+st.divider()
+
 st.subheader("🗄️ Dataset Preview")
 st.caption("A sample of the raw training data.")
 
 st.dataframe(
-    df.head(10),
+    filtered_df.head(10),
     use_container_width=True
 )
 
-st.caption(f"Showing 10 rows · Total sample size: {len(df):,} rows")
+st.caption(
+    f"Showing 10 rows · "
+    f"{len(filtered_df):,} observations on snapshot day {snapshot}"
+)
