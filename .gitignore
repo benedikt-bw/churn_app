@@ -223,3 +223,4 @@ data/*.parquet
 
 # Ignore other:
 .DS_Store
+AGENTS.md
