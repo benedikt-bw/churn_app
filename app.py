@@ -1,5 +1,37 @@
+from pathlib import Path
+
 import pandas as pd
 import streamlit as st
+
+DATA_PATH = Path("data/03_10_day_window_sliced.parquet")
+
+
+def load_data(path: Path) -> pd.DataFrame:
+    """Load the engineered churn dataset."""
+    return pd.read_parquet(path)
+
+
+def filter_snapshot(df: pd.DataFrame, snapshot_day: int) -> pd.DataFrame:
+    """Filter the dataset to one snapshot day."""
+    return df[df["snapshot_day"] == snapshot_day]
+
+
+def calculate_metrics(df: pd.DataFrame) -> tuple[int, float, float]:
+    """Calculate user count, churn rate, and average active days."""
+    unique_users = df["userId"].nunique()
+    churn_rate = df["label"].mean() * 100
+    avg_active_days = df["active_days"].mean()
+    return unique_users, churn_rate, avg_active_days
+
+
+def calculate_churn_by_day(df: pd.DataFrame) -> pd.DataFrame:
+    """Calculate the churn rate for each snapshot day."""
+    return (
+        df.groupby("snapshot_day")["label"]
+        .mean()
+        .mul(100)
+        .reset_index(name="Churn Rate (%)")
+    )
 
 # --------------------------------------------------
 # Page configuration
@@ -66,7 +98,7 @@ p {
 # Load data
 # --------------------------------------------------
 
-df = pd.read_parquet("data/03_10_day_window_sliced.parquet")
+df = load_data(DATA_PATH)
 
 # --------------------------------------------------
 # Main page
@@ -89,11 +121,8 @@ snapshot = st.selectbox(
     sorted(df["snapshot_day"].unique())
 )
 
-filtered_df = df[df["snapshot_day"] == snapshot]
-
-unique_users = filtered_df["userId"].nunique()
-churn_rate = filtered_df["label"].mean() * 100
-avg_active_days = filtered_df["active_days"].mean()
+filtered_df = filter_snapshot(df, int(snapshot))
+unique_users, churn_rate, avg_active_days = calculate_metrics(filtered_df)
 
 col1, col2, col3 = st.columns(3)
 
@@ -195,12 +224,7 @@ with col1:
 with col2:
     st.markdown("#### Churn Rate Over Time")
 
-    churn_by_day = (
-        df.groupby("snapshot_day")["label"]
-        .mean()
-        .mul(100)
-        .reset_index(name="Churn Rate (%)")
-    )
+    churn_by_day = calculate_churn_by_day(df)
 
     st.line_chart(
         churn_by_day,
