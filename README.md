@@ -95,6 +95,9 @@ uv run ruff format .
 uv run ruff check .
 ```
 
+GitHub Actions runs the formatting, lint, and test checks on every push and
+pull request. The workflow is defined in `.github/workflows/ci.yml`.
+
 ## Project structure
 
 ```text
@@ -104,7 +107,7 @@ uv run ruff check .
 ├── data/                          # Local datasets, excluded from Git
 ├── tests/test_app.py              # Data-layer unit tests
 ├── Dockerfile                     # Container image definition
-├── .gitlab-ci.yml                 # CI quality and test pipeline
+├── .github/workflows/ci.yml       # GitHub Actions quality and test pipeline
 ├── pyproject.toml                 # Project and tool configuration
 ├── uv.lock                        # Locked dependency versions
 └── README.md                      # Project documentation
