@@ -1,62 +1,117 @@
->📋  A template README.md for code accompanying a Machine Learning paper
+# Music Streaming Churn Dashboard
 
-# My Paper Title
-
-This repository is the official implementation of [My Paper Title](https://arxiv.org/abs/2030.12345). 
-
->📋  Optional: include a graphic explaining your approach/main result, bibtex entry, link to demos, blog posts and tutorials
+A Streamlit dashboard for exploring user-level churn snapshots from a music
+streaming dataset. The dashboard focuses on clean data loading, snapshot
+filtering, churn metrics, and simple visual analysis.
 
 ## Requirements
 
-To install requirements:
+- Python 3.10 or newer
+- [`uv`](https://docs.astral.sh/uv/)
+- The local Parquet dataset described below
 
-```setup
-pip install -r requirements.txt
+## Setup
+
+Install the project dependencies and create the local environment with:
+
+```bash
+uv sync
 ```
 
->📋  Describe how to set up the environment, e.g. pip/conda/docker commands, download datasets, etc...
+The project uses `pyproject.toml` for dependency declarations and `uv.lock` to
+keep installations reproducible.
 
-## Training
+## Data
 
-To train the model(s) in the paper, run this command:
+The application expects this file:
 
-```train
-python train.py --input-data <path_to_data> --alpha 10 --beta 20
+```text
+data/03_10_day_window_sliced.parquet
 ```
 
->📋  Describe how to train the models, with example commands on how to train the models in your paper, including the full training procedure and appropriate hyperparameters.
+The file is intentionally excluded from Git because it is a processed dataset.
+Place a local copy in the `data/` directory before starting the application.
+The repository also contains `data/train_sample.csv`, a small raw event-data
+sample for reference; it is not loaded by the dashboard.
 
-## Evaluation
+The Parquet dataset must contain the columns used by the dashboard:
 
-To evaluate my model on ImageNet, run:
+- `userId`
+- `snapshot_day`
+- `label` (`0` or `1`)
+- `active_days`
+- `gender`
+- `operating_system`
 
-```eval
-python eval.py --model-file mymodel.pth --benchmark imagenet
+The application validates these columns and their values when loading the data.
+
+## Run the dashboard
+
+Start Streamlit with:
+
+```bash
+uv run streamlit run app.py
 ```
 
->📋  Describe how to evaluate the trained models on benchmarks reported in the paper, give commands that produce the results (section below).
+The dashboard lets you select a snapshot day and displays:
 
-## Pre-trained Models
+- User count, churn rate, and average active days
+- Gender and operating-system distributions
+- Churned versus non-churned users
+- Churn rate across snapshot days
+- A preview of the selected snapshot data
 
-You can download pretrained models here:
+## Run with Docker
 
-- [My awesome model](https://drive.google.com/mymodel.pth) trained on ImageNet using parameters x,y,z. 
+Build the image from the project root:
 
->📋  Give a link to where/how the pretrained models can be downloaded and how they were trained (if applicable).  Alternatively you can have an additional column in your results table with a link to the models.
+```bash
+docker build -t music-churn-dashboard .
+```
 
-## Results
+The image does not include the ignored dataset. Mount the local `data/`
+directory when starting the container:
 
-Our model achieves the following performance on :
+```bash
+docker run --rm -p 8501:8501 \
+  -v "$(pwd)/data:/app/data:ro" \
+  music-churn-dashboard
+```
 
-### [Image Classification on ImageNet](https://paperswithcode.com/sota/image-classification-on-imagenet)
+Open <http://localhost:8501> in a browser.
 
-| Model name         | Top 1 Accuracy  | Top 5 Accuracy |
-| ------------------ |---------------- | -------------- |
-| My awesome model   |     85%         |      95%       |
+## Test and quality checks
 
->📋  Include a table of results from your paper, and link back to the leaderboard for clarity and context. If your main result is a figure, include that figure and link to the command or notebook to reproduce it. 
+Run the test suite with coverage:
 
+```bash
+uv run pytest --cov=.
+```
 
-## Contributing
+Run Ruff formatting and lint checks:
 
->📋  Pick a licence and describe how to contribute to your code repository. 
+```bash
+uv run ruff format .
+uv run ruff check .
+```
+
+## Project structure
+
+```text
+.
+├── app.py                         # Streamlit application
+├── dashboard.py                   # Data loading and metric utilities
+├── data/                          # Local datasets, excluded from Git
+├── tests/test_app.py              # Data-layer unit tests
+├── Dockerfile                     # Container image definition
+├── .gitlab-ci.yml                 # CI quality and test pipeline
+├── pyproject.toml                 # Project and tool configuration
+├── uv.lock                        # Locked dependency versions
+└── README.md                      # Project documentation
+```
+
+## Current scope
+
+This project currently provides an exploratory dashboard over prepared churn
+snapshots. Model training, prediction, and automated data-pipeline generation
+are outside the current application scope.

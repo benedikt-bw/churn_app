@@ -3,7 +3,7 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from app import (
+from dashboard import (
     calculate_churn_by_day,
     calculate_metrics,
     filter_snapshot,

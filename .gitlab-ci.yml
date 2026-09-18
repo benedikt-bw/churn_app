@@ -1,0 +1,30 @@
+image: python:3.11-slim
+
+variables:
+  UV_VERSION: "0.12.16"
+  UV_CACHE_DIR: "$CI_PROJECT_DIR/.uv-cache"
+  PIP_DISABLE_PIP_VERSION_CHECK: "1"
+
+cache:
+  key: "$CI_COMMIT_REF_SLUG"
+  paths:
+    - .uv-cache/
+
+before_script:
+  - python -m pip install --no-cache-dir "uv==${UV_VERSION}"
+  - uv sync --locked
+
+stages:
+  - quality
+  - test
+
+quality:
+  stage: quality
+  script:
+    - uv run ruff format --check .
+    - uv run ruff check .
+
+test:
+  stage: test
+  script:
+    - uv run pytest --cov=.
