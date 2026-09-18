@@ -1,3 +1,5 @@
+[![CI](https://github.com/benedikt-bw/churn_app/actions/workflows/ci.yml/badge.svg)](https://github.com/benedikt-bw/churn_app/actions/workflows/ci.yml)
+
 # Music Streaming Churn Dashboard
 
 A Streamlit dashboard for exploring user-level churn snapshots from a music
