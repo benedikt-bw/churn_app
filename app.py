@@ -1,21 +1,25 @@
-import pandas as pd
 import streamlit as st
+
+from dashboard import (
+    DATA_PATH,
+    calculate_churn_by_day,
+    calculate_metrics,
+    filter_snapshot,
+    load_data,
+)
 
 # --------------------------------------------------
 # Page configuration
 # --------------------------------------------------
 
-st.set_page_config(
-    page_title="Music Churn",
-    page_icon="🎵",
-    layout="wide"
-)
+st.set_page_config(page_title="Music Churn", page_icon="🎵", layout="wide")
 
 # --------------------------------------------------
 # Custom styling
 # --------------------------------------------------
 
-st.markdown("""
+st.markdown(
+    """
 <style>
 
 /* Main background */
@@ -60,13 +64,15 @@ p {
 }
 
 </style>
-""", unsafe_allow_html=True)
+""",
+    unsafe_allow_html=True,
+)
 
 # --------------------------------------------------
 # Load data
 # --------------------------------------------------
 
-df = pd.read_parquet("data/03_10_day_window_sliced.parquet")
+df = load_data(DATA_PATH)
 
 # --------------------------------------------------
 # Main page
@@ -74,9 +80,7 @@ df = pd.read_parquet("data/03_10_day_window_sliced.parquet")
 
 st.title("🎵 Music Streaming Churn Analysis")
 
-st.markdown(
-    "Explore the data. Discover patterns. Understand your listeners."
-)
+st.markdown("Explore the data. Discover patterns. Understand your listeners.")
 
 st.divider()
 
@@ -84,36 +88,21 @@ st.divider()
 # Key metrics
 # --------------------------------------------------
 
-snapshot = st.selectbox(
-    "Select snapshot day",
-    sorted(df["snapshot_day"].unique())
-)
+snapshot = st.selectbox("Select snapshot day", sorted(df["snapshot_day"].unique()))
 
-filtered_df = df[df["snapshot_day"] == snapshot]
-
-unique_users = filtered_df["userId"].nunique()
-churn_rate = filtered_df["label"].mean() * 100
-avg_active_days = filtered_df["active_days"].mean()
+filtered_df = filter_snapshot(df, int(snapshot))
+unique_users, churn_rate, avg_active_days = calculate_metrics(filtered_df)
 
 col1, col2, col3 = st.columns(3)
 
 with col1:
-    st.metric(
-        label="Users",
-        value=f"{unique_users:,}"
-    )
+    st.metric(label="Users", value=f"{unique_users:,}")
 
 with col2:
-    st.metric(
-        label="Churn Rate",
-        value=f"{churn_rate:.1f}%"
-    )
+    st.metric(label="Churn Rate", value=f"{churn_rate:.1f}%")
 
 with col3:
-    st.metric(
-        label="Avg. Active Days",
-        value=f"{avg_active_days:.1f}"
-    )
+    st.metric(label="Avg. Active Days", value=f"{avg_active_days:.1f}")
 
 # --------------------------------------------------
 # User Overview
@@ -136,30 +125,17 @@ with col1:
     )
     gender_counts.columns = ["Gender", "Users"]
 
-    st.bar_chart(
-        gender_counts,
-        x="Gender",
-        y="Users"
-    )
+    st.bar_chart(gender_counts, x="Gender", y="Users")
 
 
 # Operating system distribution
 with col2:
     st.markdown("#### Operating System")
 
-    os_counts = (
-        filtered_df["operating_system"]
-        .value_counts()
-        .reset_index()
-    )
+    os_counts = filtered_df["operating_system"].value_counts().reset_index()
     os_counts.columns = ["Operating System", "Users"]
 
-    st.bar_chart(
-        os_counts,
-        x="Operating System",
-        y="Users"
-    )
-
+    st.bar_chart(os_counts, x="Operating System", y="Users")
 
 
 # --------------------------------------------------
@@ -184,36 +160,16 @@ with col1:
 
     churn_counts.columns = ["Status", "Users"]
 
-    st.bar_chart(
-        churn_counts,
-        x="Status",
-        y="Users"
-    )
+    st.bar_chart(churn_counts, x="Status", y="Users")
 
 
 # Churn rate across snapshot days
 with col2:
     st.markdown("#### Churn Rate Over Time")
 
-    churn_by_day = (
-        df.groupby("snapshot_day")["label"]
-        .mean()
-        .mul(100)
-        .reset_index(name="Churn Rate (%)")
-    )
+    churn_by_day = calculate_churn_by_day(df)
 
-    st.line_chart(
-        churn_by_day,
-        x="snapshot_day",
-        y="Churn Rate (%)"
-    )
-
-
-
-
-
-
-
+    st.line_chart(churn_by_day, x="snapshot_day", y="Churn Rate (%)")
 
 
 # --------------------------------------------------
@@ -225,12 +181,8 @@ st.divider()
 st.subheader("🗄️ Dataset Preview")
 st.caption("A sample of the raw training data.")
 
-st.dataframe(
-    filtered_df.head(10),
-    use_container_width=True
-)
+st.dataframe(filtered_df.head(10), use_container_width=True)
 
 st.caption(
-    f"Showing 10 rows · "
-    f"{len(filtered_df):,} observations on snapshot day {snapshot}"
+    f"Showing 10 rows · {len(filtered_df):,} observations on snapshot day {snapshot}"
 )
