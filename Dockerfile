@@ -11,6 +11,7 @@ RUN python -m pip install --no-cache-dir uv==0.12.16 \
     && uv sync --locked --no-dev
 
 COPY app.py dashboard.py ./
+COPY .streamlit ./.streamlit
 
 EXPOSE 8501
 

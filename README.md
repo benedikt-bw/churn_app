@@ -61,6 +61,10 @@ The dashboard lets you select a snapshot day and displays:
 - Gender and operating-system distributions
 - Churned versus non-churned users
 - Churn rate across snapshot days
+- Churn rates by subscription level, browser, and operating system
+- Churn rates across active-day engagement bands
+- Engagement trends for active days and songs per session
+- A new-user versus subscription-level churn risk matrix
 - A preview of the selected snapshot data
 
 ## Run with Docker
@@ -106,6 +110,7 @@ pull request. The workflow is defined in `.github/workflows/ci.yml`.
 .
 ├── app.py                         # Streamlit application
 ├── dashboard.py                   # Data loading and metric utilities
+├── .streamlit/config.toml         # Shared dark theme and chart palette
 ├── data/                          # Local datasets, excluded from Git
 ├── tests/test_app.py              # Data-layer unit tests
 ├── Dockerfile                     # Container image definition

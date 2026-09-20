@@ -10,6 +10,11 @@ REQUIRED_COLUMNS = {
     "active_days": "numeric",
     "gender": "categorical",
     "operating_system": "categorical",
+    "browser": "categorical",
+    "last_level": "categorical",
+    "avg_songs_session": "numeric",
+    "hours_since_last_session": "numeric",
+    "is_new_user": "integer",
 }
 
 
@@ -77,4 +82,71 @@ def calculate_churn_by_day(df: pd.DataFrame) -> pd.DataFrame:
         .mean()
         .mul(100)
         .reset_index(name="Churn Rate (%)")
+    )
+
+
+def calculate_churn_by_group(df: pd.DataFrame, group_column: str) -> pd.DataFrame:
+    """Calculate users and churn rate for each group."""
+    result = (
+        df.groupby(group_column, observed=True, dropna=False)
+        .agg(Users=("userId", "nunique"), churn_rate=("label", "mean"))
+        .reset_index()
+    )
+    result["Churn Rate (%)"] = result.pop("churn_rate") * 100
+    return result.sort_values("Churn Rate (%)", ascending=False).reset_index(drop=True)
+
+
+def calculate_engagement_trends(df: pd.DataFrame) -> pd.DataFrame:
+    """Calculate average engagement signals for each snapshot day."""
+    return (
+        df.groupby("snapshot_day", as_index=False)
+        .agg(
+            **{
+                "Avg Active Days": ("active_days", "mean"),
+                "Avg Songs / Session": ("avg_songs_session", "mean"),
+                "Avg Hours Since Last Session": (
+                    "hours_since_last_session",
+                    "mean",
+                ),
+            }
+        )
+        .sort_values("snapshot_day")
+    )
+
+
+def calculate_activity_bands(df: pd.DataFrame) -> pd.DataFrame:
+    """Calculate churn across active-day bands."""
+    bands = pd.cut(
+        df["active_days"],
+        bins=[0, 3, 7, 14, float("inf")],
+        labels=["1–3 days", "4–7 days", "8–14 days", "15+ days"],
+    )
+    activity_data = df.assign(activity_band=bands)
+    result = (
+        activity_data.groupby("activity_band", observed=False)
+        .agg(Users=("userId", "nunique"), churn_rate=("label", "mean"))
+        .reset_index()
+        .dropna(subset=["activity_band"])
+        .query("Users > 0")
+    )
+    result["Churn Rate (%)"] = result.pop("churn_rate") * 100
+    result = result.rename(columns={"activity_band": "Activity Band"})
+    return result
+
+
+def calculate_churn_matrix(
+    df: pd.DataFrame, row_column: str, column_column: str
+) -> pd.DataFrame:
+    """Calculate a churn-rate matrix for two user segments."""
+    return (
+        pd.pivot_table(
+            df,
+            index=row_column,
+            columns=column_column,
+            values="label",
+            aggfunc="mean",
+            observed=True,
+        )
+        .mul(100)
+        .sort_index()
     )
