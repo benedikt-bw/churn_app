@@ -139,7 +139,13 @@ st.divider()
 # Key metrics
 # --------------------------------------------------
 
-snapshot = st.selectbox("Select snapshot day", sorted(df["snapshot_day"].unique()))
+snapshot_days = sorted(df["snapshot_day"].unique())
+
+snapshot = st.select_slider(
+    "Select snapshot day",
+    options=snapshot_days,
+    value=snapshot_days[0],
+)
 
 filtered_df = filter_snapshot(df, int(snapshot))
 unique_users, churn_rate, avg_active_days = calculate_metrics(filtered_df)
