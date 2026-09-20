@@ -1,3 +1,5 @@
+"""Render the Streamlit interface for the music churn dashboard."""
+
 import streamlit as st
 
 from dashboard import (

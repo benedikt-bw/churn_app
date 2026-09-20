@@ -1,3 +1,5 @@
+"""Load, validate, and aggregate data for the churn dashboard."""
+
 from pathlib import Path
 
 import pandas as pd
