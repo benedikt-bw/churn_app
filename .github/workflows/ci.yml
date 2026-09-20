@@ -37,3 +37,6 @@ jobs:
 
       - name: Test
         run: uv run pytest --cov=.
+
+      - name: Build Docker image
+        run: docker build --tag music-churn-dashboard:ci .

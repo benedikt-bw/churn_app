@@ -218,8 +218,9 @@ __marimo__/
 .streamlit/secrets.toml
 
 # Ignore Data
-data/*.csv
-data/*.parquet
+data/*
+!data/README.md
+!data/churn_sample.parquet
 
 # Ignore other:
 .DS_Store

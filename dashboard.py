@@ -1,10 +1,14 @@
 """Load, validate, and aggregate data for the churn dashboard."""
 
+import os
 from pathlib import Path
 
 import pandas as pd
 
-DATA_PATH = Path("data/03_10_day_window_sliced.parquet")
+PROJECT_ROOT = Path(__file__).resolve().parent
+FULL_DATA_PATH = PROJECT_ROOT / "data/03_10_day_window_sliced.parquet"
+SAMPLE_DATA_PATH = PROJECT_ROOT / "data/churn_sample.parquet"
+DATA_PATH_ENV_VAR = "CHURN_DATA_PATH"
 REQUIRED_COLUMNS = {
     "userId": "integer",
     "snapshot_day": "integer",
@@ -18,6 +22,34 @@ REQUIRED_COLUMNS = {
     "hours_since_last_session": "numeric",
     "is_new_user": "integer",
 }
+
+
+def resolve_data_path(configured_path: Path | None = None) -> Path:
+    """Resolve the configured, full, or bundled sample dataset path."""
+    if configured_path is not None:
+        if configured_path.exists():
+            return configured_path
+        raise FileNotFoundError(
+            f"Configured churn dataset not found: {configured_path}."
+        )
+
+    environment_path = os.getenv(DATA_PATH_ENV_VAR)
+    if environment_path:
+        path = Path(environment_path).expanduser()
+        if path.exists():
+            return path
+        raise FileNotFoundError(
+            f"Dataset configured by {DATA_PATH_ENV_VAR} not found: {path}."
+        )
+
+    for path in (FULL_DATA_PATH, SAMPLE_DATA_PATH):
+        if path.exists():
+            return path
+
+    raise FileNotFoundError(
+        "No churn dataset found. Add the full dataset at "
+        f"{FULL_DATA_PATH} or restore the bundled sample at {SAMPLE_DATA_PATH}."
+    )
 
 
 def validate_data(df: pd.DataFrame) -> None:

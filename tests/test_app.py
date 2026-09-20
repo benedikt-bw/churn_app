@@ -5,7 +5,10 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
+import dashboard
 from dashboard import (
+    DATA_PATH_ENV_VAR,
+    SAMPLE_DATA_PATH,
     calculate_activity_bands,
     calculate_churn_by_day,
     calculate_churn_by_group,
@@ -14,8 +17,10 @@ from dashboard import (
     calculate_metrics,
     filter_snapshot,
     load_data,
+    resolve_data_path,
     validate_data,
 )
+from scripts.create_sample import create_sample
 
 
 def make_valid_data() -> pd.DataFrame:
@@ -61,6 +66,122 @@ def test_load_data_rejects_malformed_parquet(tmp_path: Path) -> None:
 
     with pytest.raises(ValueError, match="Could not read the Parquet dataset"):
         load_data(path)
+
+
+def test_resolve_data_path_uses_explicit_path(tmp_path: Path) -> None:
+    """Prefer an explicitly supplied dataset path."""
+    path = tmp_path / "configured.parquet"
+    path.touch()
+
+    assert resolve_data_path(path) == path
+
+
+def test_resolve_data_path_rejects_missing_explicit_path(tmp_path: Path) -> None:
+    """Reject an explicit dataset path that does not exist."""
+    path = tmp_path / "missing.parquet"
+
+    with pytest.raises(FileNotFoundError, match="Configured churn dataset"):
+        resolve_data_path(path)
+
+
+def test_resolve_data_path_uses_environment_path(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Use the dataset path configured through the environment."""
+    path = tmp_path / "environment.parquet"
+    path.touch()
+    monkeypatch.setenv(DATA_PATH_ENV_VAR, str(path))
+
+    assert resolve_data_path() == path
+
+
+def test_resolve_data_path_rejects_missing_environment_path(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Reject a missing dataset configured through the environment."""
+    path = tmp_path / "missing.parquet"
+    monkeypatch.setenv(DATA_PATH_ENV_VAR, str(path))
+
+    with pytest.raises(FileNotFoundError, match=DATA_PATH_ENV_VAR):
+        resolve_data_path()
+
+
+def test_resolve_data_path_prefers_full_dataset(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Prefer the local full dataset over the bundled sample."""
+    full_path = tmp_path / "full.parquet"
+    sample_path = tmp_path / "sample.parquet"
+    full_path.touch()
+    sample_path.touch()
+    monkeypatch.delenv(DATA_PATH_ENV_VAR, raising=False)
+    monkeypatch.setattr(dashboard, "FULL_DATA_PATH", full_path)
+    monkeypatch.setattr(dashboard, "SAMPLE_DATA_PATH", sample_path)
+
+    assert resolve_data_path() == full_path
+
+
+def test_resolve_data_path_falls_back_to_sample(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Use the bundled sample when the full dataset is unavailable."""
+    sample_path = tmp_path / "sample.parquet"
+    sample_path.touch()
+    monkeypatch.delenv(DATA_PATH_ENV_VAR, raising=False)
+    monkeypatch.setattr(dashboard, "FULL_DATA_PATH", tmp_path / "full.parquet")
+    monkeypatch.setattr(dashboard, "SAMPLE_DATA_PATH", sample_path)
+
+    assert resolve_data_path() == sample_path
+
+
+def test_resolve_data_path_rejects_missing_default_datasets(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Raise a clear error when no default dataset exists."""
+    monkeypatch.delenv(DATA_PATH_ENV_VAR, raising=False)
+    monkeypatch.setattr(dashboard, "FULL_DATA_PATH", tmp_path / "full.parquet")
+    monkeypatch.setattr(dashboard, "SAMPLE_DATA_PATH", tmp_path / "sample.parquet")
+
+    with pytest.raises(FileNotFoundError, match="No churn dataset found"):
+        resolve_data_path()
+
+
+def test_bundled_sample_is_valid_and_representative() -> None:
+    """Load the committed sample and verify its dashboard coverage."""
+    sample = load_data(SAMPLE_DATA_PATH)
+
+    assert len(sample) == 1_000
+    assert sample["snapshot_day"].nunique() == 4
+    assert set(sample["label"]) == {0, 1}
+    assert set(sample["is_new_user"]) == {0, 1}
+    assert sample["userId"].min() == 1
+    assert sample["userId"].max() == sample["userId"].nunique()
+
+
+def test_create_sample_limits_columns_and_remaps_identifiers(tmp_path: Path) -> None:
+    """Create a deterministic sample containing anonymized dashboard fields."""
+    source = pd.concat([make_valid_data(), make_valid_data().assign(userId=[4, 5, 6])])
+    source_path = tmp_path / "source.parquet"
+    output_path = tmp_path / "sample.parquet"
+    source.to_parquet(source_path)
+
+    result = create_sample(
+        source_path=source_path,
+        output_path=output_path,
+        rows_per_snapshot=2,
+        random_seed=42,
+    )
+
+    assert output_path.exists()
+    assert list(result.columns) == list(dashboard.REQUIRED_COLUMNS)
+    assert result["userId"].min() == 1
+    assert result["userId"].max() == result["userId"].nunique()
+
+
+def test_create_sample_rejects_non_positive_rows(tmp_path: Path) -> None:
+    """Reject a sample size that cannot produce data."""
+    with pytest.raises(ValueError, match="greater than zero"):
+        create_sample(tmp_path / "source.parquet", tmp_path / "sample.parquet", 0)
 
 
 def test_filter_snapshot_returns_selected_day() -> None:
