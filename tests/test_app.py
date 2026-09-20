@@ -1,3 +1,5 @@
+"""Test the dashboard data-loading and aggregation utilities."""
+
 from pathlib import Path
 
 import pandas as pd
@@ -50,6 +52,15 @@ def test_load_data_raises_for_missing_file(tmp_path: Path) -> None:
     """Raise a clear error when the dataset file is missing."""
     with pytest.raises(FileNotFoundError, match="not found"):
         load_data(tmp_path / "missing.parquet")
+
+
+def test_load_data_rejects_malformed_parquet(tmp_path: Path) -> None:
+    """Raise a clear error when the dataset cannot be read."""
+    path = tmp_path / "malformed.parquet"
+    path.write_text("not a Parquet file", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="Could not read the Parquet dataset"):
+        load_data(path)
 
 
 def test_filter_snapshot_returns_selected_day() -> None:
@@ -134,6 +145,12 @@ def test_validate_data_accepts_valid_data() -> None:
     validate_data(make_valid_data())
 
 
+def test_validate_data_rejects_empty_data() -> None:
+    """Reject an empty dataset before checking its schema."""
+    with pytest.raises(ValueError, match="dataset is empty"):
+        validate_data(pd.DataFrame())
+
+
 def test_validate_data_rejects_missing_columns() -> None:
     """Reject data without all required columns."""
     data = make_valid_data().drop(columns="label")
@@ -175,4 +192,13 @@ def test_validate_data_rejects_wrong_numeric_types() -> None:
     data["active_days"] = ["two", "four", "six"]
 
     with pytest.raises(TypeError, match="active_days.*numeric"):
+        validate_data(data)
+
+
+def test_validate_data_rejects_wrong_integer_types() -> None:
+    """Reject non-integer values in integer columns."""
+    data = make_valid_data()
+    data["is_new_user"] = [0.0, 1.0, 0.0]
+
+    with pytest.raises(TypeError, match="is_new_user.*integer"):
         validate_data(data)

@@ -22,6 +22,9 @@ dev = [
 testpaths = ["tests"]
 pythonpath = ["."]
 
+[tool.coverage.run]
+omit = ["app.py", "tests/*"]
+
 [tool.ruff]
 line-length = 88
 target-version = "py310"

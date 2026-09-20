@@ -23,6 +23,9 @@ uv sync
 The project uses `pyproject.toml` for dependency declarations and `uv.lock` to
 keep installations reproducible.
 
+Matplotlib is included because the risk matrix uses Pandas Styler's
+`background_gradient` to render churn intensity.
+
 ## Data
 
 The application expects this file:
@@ -44,6 +47,11 @@ The Parquet dataset must contain the columns used by the dashboard:
 - `active_days`
 - `gender`
 - `operating_system`
+- `browser`
+- `last_level`
+- `avg_songs_session`
+- `hours_since_last_session`
+- `is_new_user`
 
 The application validates these columns and their values when loading the data.
 
@@ -65,7 +73,14 @@ The dashboard lets you select a snapshot day and displays:
 - Churn rates across active-day engagement bands
 - Engagement trends for active days and songs per session
 - A new-user versus subscription-level churn risk matrix
-- A preview of the selected snapshot data
+- An optional preview of the selected snapshot data
+
+The snapshot selector controls all snapshot-specific metrics and charts. The
+raw data preview is hidden by default and can be enabled with `Show raw data`.
+
+The visual theme is defined in `.streamlit/config.toml`: it keeps the page,
+charts, metrics, and tables on the same navy background with coordinated cyan,
+teal, purple, amber, and pink accents.
 
 ## Run with Docker
 
@@ -93,6 +108,11 @@ Run the test suite with coverage:
 ```bash
 uv run pytest --cov=.
 ```
+
+The coverage report targets the data layer in `dashboard.py`. The Streamlit
+rendering script is excluded from unit coverage because importing it starts the
+interactive page and requires the local production dataset; it is checked with
+the runtime smoke test before release.
 
 Run Ruff formatting and lint checks:
 
