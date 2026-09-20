@@ -303,12 +303,13 @@ st.dataframe(
 # --------------------------------------------------
 
 st.divider()
-if st.checkbox('Show raw data'):
+if st.checkbox("Show raw data"):
     st.subheader("🗄️ Dataset Preview")
     st.caption("A sample of the prepared churn snapshot data.")
 
     st.dataframe(filtered_df.head(10), use_container_width=True)
 
     st.caption(
-        f"Showing 10 rows · {len(filtered_df):,} observations on snapshot day {snapshot}"
-)
+        f"Showing 10 rows · "
+        f"{len(filtered_df):,} observations on snapshot day {snapshot}"
+    )
