@@ -4,7 +4,11 @@ import pandas as pd
 import pytest
 
 from dashboard import (
+    calculate_activity_bands,
     calculate_churn_by_day,
+    calculate_churn_by_group,
+    calculate_churn_matrix,
+    calculate_engagement_trends,
     calculate_metrics,
     filter_snapshot,
     load_data,
@@ -22,6 +26,11 @@ def make_valid_data() -> pd.DataFrame:
             "active_days": [2, 4, 6],
             "gender": ["F", "M", "F"],
             "operating_system": ["Macintosh", "Windows", "Linux"],
+            "browser": ["Chrome", "Firefox", "Safari"],
+            "last_level": ["paid", "free", "paid"],
+            "avg_songs_session": [20.0, 30.0, 40.0],
+            "hours_since_last_session": [10.0, 20.0, 30.0],
+            "is_new_user": [0, 1, 0],
         }
     )
 
@@ -76,6 +85,48 @@ def test_calculate_churn_by_day_returns_percentages() -> None:
         }
     )
     pd.testing.assert_frame_equal(result, expected)
+
+
+def test_calculate_churn_by_group_sorts_by_risk() -> None:
+    """Calculate and sort churn rates for a user segment."""
+    data = make_valid_data()
+
+    result = calculate_churn_by_group(data, "gender")
+
+    assert result["gender"].tolist() == ["M", "F"]
+    assert result["Churn Rate (%)"].tolist() == [100.0, 0.0]
+    assert result["Users"].tolist() == [1, 2]
+
+
+def test_calculate_engagement_trends_aggregates_snapshot_days() -> None:
+    """Calculate engagement averages for each snapshot day."""
+    data = make_valid_data()
+
+    result = calculate_engagement_trends(data)
+
+    assert result["snapshot_day"].tolist() == [9, 19]
+    assert result.loc[0, "Avg Active Days"] == pytest.approx(3.0)
+    assert result.loc[0, "Avg Songs / Session"] == pytest.approx(25.0)
+
+
+def test_calculate_activity_bands_returns_ordered_churn_rates() -> None:
+    """Calculate churn rates for active-day bands."""
+    data = make_valid_data()
+
+    result = calculate_activity_bands(data)
+
+    assert result["Activity Band"].tolist() == ["1–3 days", "4–7 days"]
+    assert result["Churn Rate (%)"].tolist() == [0.0, 50.0]
+
+
+def test_calculate_churn_matrix_returns_segment_rates() -> None:
+    """Calculate churn rates for combinations of two segments."""
+    data = make_valid_data()
+
+    result = calculate_churn_matrix(data, "is_new_user", "last_level")
+
+    assert result.loc[0, "paid"] == pytest.approx(0.0)
+    assert result.loc[1, "free"] == pytest.approx(100.0)
 
 
 def test_validate_data_accepts_valid_data() -> None:

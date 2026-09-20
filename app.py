@@ -2,7 +2,11 @@ import streamlit as st
 
 from dashboard import (
     DATA_PATH,
+    calculate_activity_bands,
     calculate_churn_by_day,
+    calculate_churn_by_group,
+    calculate_churn_matrix,
+    calculate_engagement_trends,
     calculate_metrics,
     filter_snapshot,
     load_data,
@@ -35,7 +39,7 @@ st.markdown(
 
 /* Main content area */
 .block-container {
-    padding-top: 3rem;
+    padding-top: 2.5rem;
     padding-bottom: 3rem;
     max-width: 1200px;
 }
@@ -44,6 +48,7 @@ st.markdown(
 h1 {
     color: #F5F7FA;
     font-weight: 700;
+    letter-spacing: -0.03em;
 }
 
 /* Other headings */
@@ -56,11 +61,57 @@ p {
     color: #B8C7DB;
 }
 
+/* Dividers */
+hr {
+    border-color: #1C3C5C;
+    margin: 1.5rem 0;
+}
+
+/* Metrics */
+[data-testid="stMetric"] {
+    background: linear-gradient(135deg, #0D2542 0%, #102E4F 100%);
+    border: 1px solid #1F4D70;
+    border-radius: 14px;
+    padding: 1rem 1.1rem;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.16);
+}
+
+[data-testid="stMetricLabel"] {
+    color: #9AB3CC;
+}
+
+[data-testid="stMetricValue"] {
+    color: #63D7FF;
+}
+
+/* Charts */
+[data-testid="stVegaLiteChart"] {
+    background-color: #0D2542;
+    border: 1px solid #1F4D70;
+    border-radius: 14px;
+    padding: 0.65rem 0.75rem 0.35rem;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+
+/* Selectors */
+[data-baseweb="select"] > div {
+    background-color: #0D2542;
+    border-color: #1F4D70;
+    border-radius: 10px;
+}
+
 /* Dataframe */
 [data-testid="stDataFrame"] {
-    border: 1px solid #27496D;
+    background-color: #0D2542;
+    border: 1px solid #1F4D70;
     border-radius: 10px;
     overflow: hidden;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+
+/* Captions */
+[data-testid="stCaptionContainer"] {
+    color: #89A6C1;
 }
 
 </style>
@@ -88,7 +139,13 @@ st.divider()
 # Key metrics
 # --------------------------------------------------
 
-snapshot = st.selectbox("Select snapshot day", sorted(df["snapshot_day"].unique()))
+snapshot_days = sorted(df["snapshot_day"].unique())
+
+snapshot = st.select_slider(
+    "Select snapshot day",
+    options=snapshot_days,
+    value=snapshot_days[0],
+)
 
 filtered_df = filter_snapshot(df, int(snapshot))
 unique_users, churn_rate, avg_active_days = calculate_metrics(filtered_df)
@@ -173,16 +230,86 @@ with col2:
 
 
 # --------------------------------------------------
+# Risk Segments
+# --------------------------------------------------
+
+st.divider()
+st.subheader("Risk Segments")
+st.caption("Compare churn rates across different listener profiles.")
+
+col1, col2 = st.columns(2)
+
+with col1:
+    st.markdown("#### Churn by Subscription Level")
+    level_churn = calculate_churn_by_group(filtered_df, "last_level")
+    st.bar_chart(level_churn, x="last_level", y="Churn Rate (%)")
+
+with col2:
+    st.markdown("#### Churn by Browser")
+    browser_churn = calculate_churn_by_group(filtered_df, "browser")
+    st.bar_chart(browser_churn, x="browser", y="Churn Rate (%)")
+
+col1, col2 = st.columns(2)
+
+with col1:
+    st.markdown("#### Churn by Operating System")
+    os_churn = calculate_churn_by_group(filtered_df, "operating_system")
+    st.bar_chart(os_churn, x="operating_system", y="Churn Rate (%)")
+
+with col2:
+    st.markdown("#### Churn by Active Days")
+    activity_bands = calculate_activity_bands(filtered_df)
+    st.bar_chart(activity_bands, x="Activity Band", y="Churn Rate (%)")
+
+
+# --------------------------------------------------
+# Engagement Signals
+# --------------------------------------------------
+
+st.divider()
+st.subheader("Engagement Signals")
+st.caption("Track how listener activity changes across the available snapshots.")
+
+engagement_trends = calculate_engagement_trends(df)
+col1, col2 = st.columns(2)
+
+with col1:
+    st.markdown("#### Engagement Trend")
+    st.line_chart(
+        engagement_trends.set_index("snapshot_day")[
+            ["Avg Active Days", "Avg Songs / Session"]
+        ]
+    )
+
+with col2:
+    st.markdown("#### Inactivity Trend")
+    st.area_chart(
+        engagement_trends.set_index("snapshot_day")[["Avg Hours Since Last Session"]]
+    )
+
+st.markdown("#### New User and Subscription Risk Matrix")
+risk_matrix = calculate_churn_matrix(filtered_df, "is_new_user", "last_level")
+risk_matrix.index = risk_matrix.index.map({0: "Returning User", 1: "New User"})
+st.dataframe(
+    risk_matrix.style.format("{:.1f}%").background_gradient(
+        cmap="RdYlGn_r", vmin=0, vmax=100
+    ),
+    use_container_width=True,
+)
+
+
+# --------------------------------------------------
 # Dataset
 # --------------------------------------------------
 
 st.divider()
+if st.checkbox("Show raw data"):
+    st.subheader("🗄️ Dataset Preview")
+    st.caption("A sample of the prepared churn snapshot data.")
 
-st.subheader("🗄️ Dataset Preview")
-st.caption("A sample of the raw training data.")
+    st.dataframe(filtered_df.head(10), use_container_width=True)
 
-st.dataframe(filtered_df.head(10), use_container_width=True)
-
-st.caption(
-    f"Showing 10 rows · {len(filtered_df):,} observations on snapshot day {snapshot}"
-)
+    st.caption(
+        f"Showing 10 rows · "
+        f"{len(filtered_df):,} observations on snapshot day {snapshot}"
+    )
