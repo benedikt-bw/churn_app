@@ -3,7 +3,7 @@
 import streamlit as st
 
 from dashboard import (
-    DATA_PATH,
+    SAMPLE_DATA_PATH,
     calculate_activity_bands,
     calculate_churn_by_day,
     calculate_churn_by_group,
@@ -12,6 +12,7 @@ from dashboard import (
     calculate_metrics,
     filter_snapshot,
     load_data,
+    resolve_data_path,
 )
 
 # --------------------------------------------------
@@ -125,7 +126,8 @@ hr {
 # Load data
 # --------------------------------------------------
 
-df = load_data(DATA_PATH)
+data_path = resolve_data_path()
+df = load_data(data_path)
 
 # --------------------------------------------------
 # Main page
@@ -134,6 +136,12 @@ df = load_data(DATA_PATH)
 st.title("🎵 Music Streaming Churn Analysis")
 
 st.markdown("Explore the data. Discover patterns. Understand your listeners.")
+
+if data_path.resolve() == SAMPLE_DATA_PATH.resolve():
+    st.info(
+        "Demo mode: the dashboard is using the bundled representative sample. "
+        "Set CHURN_DATA_PATH to analyze another compatible Parquet dataset."
+    )
 
 st.divider()
 

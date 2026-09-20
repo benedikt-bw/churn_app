@@ -12,6 +12,7 @@ RUN python -m pip install --no-cache-dir uv==0.12.16 \
 
 COPY app.py dashboard.py ./
 COPY .streamlit ./.streamlit
+COPY data/churn_sample.parquet ./data/churn_sample.parquet
 
 EXPOSE 8501
 

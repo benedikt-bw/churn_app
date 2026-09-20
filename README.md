@@ -2,44 +2,60 @@
 
 # Music Streaming Churn Dashboard
 
-A Streamlit dashboard for exploring user-level churn snapshots from a music
-streaming dataset. The dashboard focuses on clean data loading, snapshot
-filtering, churn metrics, and simple visual analysis.
+A containerized Streamlit dashboard for exploring prepared user-level churn
+snapshots from a music streaming dataset. The project focuses on reproducible
+data loading, validation, filtering, aggregation, and visual analysis. Machine
+learning is intentionally outside its scope.
 
-## Requirements
+## Quick start
+
+Requirements:
 
 - Python 3.10 or newer
 - [`uv`](https://docs.astral.sh/uv/)
-- The local Parquet dataset described below
 
-## Setup
-
-Install the project dependencies and create the local environment with:
+Install the locked dependencies and start the application:
 
 ```bash
 uv sync
+uv run streamlit run app.py
 ```
 
-The project uses `pyproject.toml` for dependency declarations and `uv.lock` to
-keep installations reproducible.
+Open <http://localhost:8501>. No external data download is required: a small,
+identifier-remapped sample is committed so the application works from a fresh
+clone.
 
-Matplotlib is included because the risk matrix uses Pandas Styler's
-`background_gradient` to render churn intensity.
+The project uses `pyproject.toml` for dependency declarations and `uv.lock` for
+reproducible installations. Matplotlib is included because the risk matrix
+uses Pandas Styler's `background_gradient`.
 
 ## Data
 
-The application expects this file:
+By default, the application chooses its input in this order:
 
-```text
-data/03_10_day_window_sliced.parquet
+1. The path in the `CHURN_DATA_PATH` environment variable
+2. The ignored full dataset at `data/03_10_day_window_sliced.parquet`
+3. The committed sample at `data/churn_sample.parquet`
+
+The bundled sample contains 1,000 rows: 250 deterministic, label-stratified
+rows from each available snapshot day. It includes only dashboard fields, and
+source user identifiers are remapped to sequential values. See
+[`data/README.md`](data/README.md) for its schema, generation method, and
+provenance notes.
+
+The full engineered dataset was created by the project author from an
+unrestricted, publicly available music-streaming source dataset for a final
+machine-learning project at École Polytechnique. The upstream raw event data is
+not distributed in this repository.
+
+To use another compatible Parquet file:
+
+```bash
+CHURN_DATA_PATH=/absolute/path/to/dataset.parquet \
+  uv run streamlit run app.py
 ```
 
-The file is intentionally excluded from Git because it is a processed dataset.
-Place a local copy in the `data/` directory before starting the application.
-The repository also contains `data/train_sample.csv`, a small raw event-data
-sample for reference; it is not loaded by the dashboard.
-
-The Parquet dataset must contain the columns used by the dashboard:
+The dataset must contain:
 
 - `userId`
 - `snapshot_day`
@@ -53,17 +69,24 @@ The Parquet dataset must contain the columns used by the dashboard:
 - `hours_since_last_session`
 - `is_new_user`
 
-The application validates these columns and their values when loading the data.
+The application rejects empty data, missing columns or values, invalid labels,
+negative snapshot days, and incompatible numeric types before rendering.
 
-## Run the dashboard
+### Regenerate the sample
 
-Start Streamlit with:
+With the ignored full dataset available at its default path, run:
 
 ```bash
-uv run streamlit run app.py
+uv run python -m scripts.create_sample
 ```
 
-The dashboard lets you select a snapshot day and displays:
+The script uses a fixed seed and remaps user identifiers, so its output is
+repeatable. The full dataset remains excluded from version control.
+
+## Dashboard features
+
+The snapshot selector controls the snapshot-specific metrics and charts. The
+dashboard provides:
 
 - User count, churn rate, and average active days
 - Gender and operating-system distributions
@@ -71,77 +94,82 @@ The dashboard lets you select a snapshot day and displays:
 - Churn rate across snapshot days
 - Churn rates by subscription level, browser, and operating system
 - Churn rates across active-day engagement bands
-- Engagement trends for active days and songs per session
+- Engagement and inactivity trends
 - A new-user versus subscription-level churn risk matrix
-- An optional preview of the selected snapshot data
+- An optional preview of the selected data
 
-The snapshot selector controls all snapshot-specific metrics and charts. The
-raw data preview is hidden by default and can be enabled with `Show raw data`.
+When the bundled sample is active, the page displays a notice. The visual theme
+in `.streamlit/config.toml` coordinates the page, charts, metrics, and tables.
 
-The visual theme is defined in `.streamlit/config.toml`: it keeps the page,
-charts, metrics, and tables on the same navy background with coordinated cyan,
-teal, purple, amber, and pink accents.
+## Docker
 
-## Run with Docker
-
-Build the image from the project root:
+Build and run the self-contained image from the project root:
 
 ```bash
 docker build -t music-churn-dashboard .
+docker run --rm -p 8501:8501 music-churn-dashboard
 ```
 
-The image does not include the ignored dataset. Mount the local `data/`
-directory when starting the container:
+The image includes the bundled sample, so no volume is required. To use a full
+dataset instead, mount the file and select it with the environment variable:
 
 ```bash
 docker run --rm -p 8501:8501 \
-  -v "$(pwd)/data:/app/data:ro" \
+  -v "/absolute/path/to/dataset.parquet:/app/data/full.parquet:ro" \
+  -e CHURN_DATA_PATH=/app/data/full.parquet \
   music-churn-dashboard
 ```
 
-Open <http://localhost:8501> in a browser.
+## Tests and quality checks
 
-## Test and quality checks
-
-Run the test suite with coverage:
-
-```bash
-uv run pytest --cov=.
-```
-
-The coverage report targets the data layer in `dashboard.py`. The Streamlit
-rendering script is excluded from unit coverage because importing it starts the
-interactive page and requires the local production dataset; it is checked with
-the runtime smoke test before release.
-
-Run Ruff formatting and lint checks:
+Run the required checks with:
 
 ```bash
 uv run ruff format .
 uv run ruff check .
+uv run pytest --cov=.
 ```
 
-GitHub Actions runs the formatting, lint, and test checks on every push and
-pull request. The workflow is defined in `.github/workflows/ci.yml`.
+Tests cover data loading, path resolution, schema validation, filtering,
+aggregations, sample generation, and the committed sample itself. The
+Streamlit rendering script is excluded from unit coverage because importing it
+starts the interactive page.
+
+GitHub Actions repeats the formatting, lint, coverage, and Docker build checks
+on every push and pull request. The workflow is defined in
+`.github/workflows/ci.yml`.
 
 ## Project structure
 
 ```text
 .
-├── app.py                         # Streamlit application
-├── dashboard.py                   # Data loading and metric utilities
+├── app.py                         # Streamlit presentation layer
+├── dashboard.py                   # Data loading and aggregation layer
 ├── .streamlit/config.toml         # Shared dark theme and chart palette
-├── data/                          # Local datasets, excluded from Git
-├── tests/test_app.py              # Data-layer unit tests
+├── data/
+│   ├── README.md                  # Sample schema and provenance
+│   └── churn_sample.parquet       # Committed runnable sample
+├── scripts/create_sample.py        # Reproducible sample generator
+├── tests/test_app.py               # Data-layer and sample tests
 ├── Dockerfile                     # Container image definition
-├── .github/workflows/ci.yml       # GitHub Actions quality and test pipeline
-├── pyproject.toml                 # Project and tool configuration
-├── uv.lock                        # Locked dependency versions
+├── .github/workflows/ci.yml       # CI quality and build pipeline
+├── pyproject.toml                 # Dependencies and tool configuration
+├── uv.lock                        # Exact dependency resolution
 └── README.md                      # Project documentation
 ```
 
-## Current scope
+## Reproducibility and scope
 
-This project currently provides an exploratory dashboard over prepared churn
-snapshots. Model training, prediction, and automated data-pipeline generation
-are outside the current application scope.
+- Runtime and development dependencies are locked with `uv.lock`.
+- The sample and its generation process are included in the repository.
+- Input data is validated before use.
+- Aggregation and filtering behavior is unit tested.
+- CI checks formatting, linting, tests, coverage, and the Docker build.
+- The container runs with committed data and can accept a mounted full dataset.
+
+The project provides exploratory analysis over prepared churn snapshots. Model
+training, prediction, and automated raw-data pipelines are not included.
+
+## Repository
+
+GitHub: <https://github.com/benedikt-bw/churn_app>
